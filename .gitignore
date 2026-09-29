@@ -1,0 +1,12 @@
+# Secrets
+.env
+
+# TLS material — regenerate with scripts/gen-certs.sh
+certs/*.key
+certs/*.crt
+certs/*.pem
+
+# Local test data. Never commit DICOM files: they contain patient identifiers.
+*.dcm
+*.multipart
+test-data/

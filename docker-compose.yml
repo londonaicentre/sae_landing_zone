@@ -1,0 +1,58 @@
+services:
+  orthanc:
+    image: orthancteam/orthanc:latest
+    container_name: orthanc
+    restart: unless-stopped
+    expose:
+      - "8042"
+    ports:
+      # DICOM C-STORE. Not proxied by nginx — DIMSE is not HTTP.
+      - "4242:4242"
+    environment:
+      # --- Logging -------------------------------------------------------
+      # VERBOSE_ENABLED logs requests and plugin activity.
+      # Set TRACE_ENABLED=true only for short debugging sessions: it logs
+      # full HTTP headers, including the base64 Authorization credentials.
+      VERBOSE_ENABLED: "${VERBOSE_ENABLED:-true}"
+      VERBOSE_STARTUP: "${VERBOSE_STARTUP:-true}"
+
+      # --- Core ----------------------------------------------------------
+      ORTHANC__NAME: "${ORTHANC_NAME:-orthanc}"
+      ORTHANC__DICOM_AET: "${ORTHANC_AET:-ORTHANC}"
+      ORTHANC__REMOTE_ACCESS_ALLOWED: "true"
+      ORTHANC__AUTHENTICATION_ENABLED: "true"
+      ORTHANC__REGISTERED_USERS: '{"${ORTHANC_USER:-admin}": "${ORTHANC_PASSWORD:?ORTHANC_PASSWORD must be set — copy .env.example to .env}"}'
+
+      # --- DICOMweb ------------------------------------------------------
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+      ORTHANC__DICOM_WEB__ENABLE: "true"
+      ORTHANC__DICOM_WEB__ROOT: "/dicom-web/"
+      ORTHANC__DICOM_WEB__ENABLE_WADO: "true"
+      ORTHANC__DICOM_WEB__WADO_ROOT: "/wado"
+      ORTHANC__DICOM_WEB__SERIES_METADATA: "Full"
+      ORTHANC__DICOM_WEB__STUDIES_METADATA: "MainDicomTags"
+    volumes:
+      - orthanc-db:/var/lib/orthanc/db
+    networks:
+      - orthanc-net
+
+  nginx:
+    image: nginx:alpine
+    container_name: orthanc-nginx
+    restart: unless-stopped
+    ports:
+      # TLS on 445. See README for the caveats around this port.
+      - "${TLS_PORT:-445}:445"
+    volumes:
+      - ./nginx/orthanc.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - orthanc
+    networks:
+      - orthanc-net
+
+volumes:
+  orthanc-db:
+
+networks:
+  orthanc-net:
